@@ -82,7 +82,8 @@
     display: flex; flex-direction: column; padding: 22px 14px;
     transition: transform .28s ease, background .3s ease;
   }
-  .sidebar .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 18px; font-size: 17px; font-weight: 700; color: var(--primary); }
+  .sidebar .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 18px; font-size: 17px; font-weight: 700; color: var(--primary); font-family: inherit; cursor: pointer; border: none; background: transparent; width: 100%; text-align: left; border-radius: 8px; transition: opacity .15s ease; }
+  .sidebar .brand:hover { opacity: .7; }
   .sidebar .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--primary); color: #fff; display: grid; place-items: center; }
   .nav { display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
   .nav-item {
@@ -242,7 +243,7 @@
 
   <!-- ============ 左侧固定导航 ============ -->
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><span class="logo">W</span><span>WorkBuddy</span></div>
+    <button class="brand" type="button" onclick="switchPage('home')" title="点击返回首页"><span class="logo">W</span><span id="brand-title">WorkBuddy</span></button>
     <nav class="nav" id="nav">
       <button class="nav-item active" data-page="home"><span class="ico">🏠</span><span class="label">功能工作台主页</span></button>
       <button class="nav-item" data-page="plan"><span class="ico">📋</span><span class="label">个人计划</span></button>
@@ -489,12 +490,19 @@
       <div class="card mt">
         <div class="card-title">👤 个人基础信息</div>
         <div class="form-row">
+          <div class="field"><label>工作台名称</label><input id="set-title" placeholder="显示在左侧顶部的标题" /></div>
           <div class="field"><label>昵称</label><input id="set-name" /></div>
           <div class="field"><label>职业</label><input id="set-job" /></div>
           <div class="field"><label>目标体重(kg)</label><input id="set-weight" /></div>
           <div class="field"><label>城市</label><input id="set-city" /></div>
         </div>
         <div style="margin-top:14px;"><button class="btn" onclick="saveProfile()">保存信息</button></div>
+      </div>
+
+      <div class="card mt">
+        <div class="card-title">🧭 导航菜单名称 <span class="tag">自定义左侧菜单文字</span></div>
+        <div class="form-row" id="nav-names"></div>
+        <div style="margin-top:14px;"><button class="btn" onclick="saveNav()">保存导航名称</button></div>
       </div>
 
       <div class="card mt">
@@ -528,6 +536,11 @@ const ACCENTS = {
   orange: { primary:'#d08a4e', soft:'#f8efe4', softDark:'#3a2f22', hover:'#bd7a40' }
 };
 
+/* 导航菜单顺序、图标与默认标题（均可在设置中自定义） */
+const NAV_ORDER = ['home','plan','account','stats','fitness','diary','calendar','exam','datalearn','creator','setting'];
+const NAV_ICONS = { home:'🏠', plan:'📋', account:'💰', stats:'📊', fitness:'🏃', diary:'✏️', calendar:'📅', exam:'📚', datalearn:'📈', creator:'🎬', setting:'⚙️' };
+const NAV_DEFAULTS = { home:'功能工作台主页', plan:'个人计划', account:'每日记账功能', stats:'收支统计看板', fitness:'减脂运动和饮食记录', diary:'成功日记', calendar:'日历', exam:'央国企考试学习', datalearn:'数据分析学习', creator:'创作者中心', setting:'个人工作台设置' };
+
 /* =========================================================
    2. 默认模拟数据（首次打开 / 重置时使用）
    ========================================================= */
@@ -535,6 +548,8 @@ function defaultState(){
   return {
     theme: 'light',
     accent: 'blue',
+    title: 'WorkBuddy',
+    nav: { ...NAV_DEFAULTS },
     profile: { name:'小布', job:'产品经理', weight:'62', city:'深圳' },
     tasks: [
       { id:uid(), label:'晨间阅读 30 分钟', done:true,  tag:'习惯' },
@@ -643,6 +658,9 @@ function normalize(s){
   ['exam','dataLearn'].forEach(k=>{
     (s[k] && s[k].points || []).forEach(it=>{ if(it && !it.id) it.id = uid(); });
   });
+  // 补齐导航标题（兼容旧数据）
+  s.nav = s.nav || {};
+  Object.keys(NAV_DEFAULTS).forEach(k=>{ if(!s.nav[k]) s.nav[k] = NAV_DEFAULTS[k]; });
   return s;
 }
 function loadState(){
@@ -991,6 +1009,11 @@ function applyTheme(){
   // 同步设置页 UI
   const tg=$('#theme-toggle'); if(tg) tg.checked = dark;
   renderSwatches();
+  renderBrand();
+}
+function renderBrand(){
+  const el = document.getElementById('brand-title');
+  if (el) el.textContent = state.title || 'WorkBuddy';
 }
 function renderSwatches(){
   const colors=[['blue','#5b6b7f'],['green','#4c9a82'],['purple','#7a6bb0'],['orange','#d08a4e']];
@@ -1001,13 +1024,23 @@ function setAccent(k){ state.accent=k; save(); applyTheme(); }
 function toggleTheme(){ state.theme = $('#theme-toggle').checked?'dark':'light'; save(); applyTheme(); }
 function saveProfile(){
   state.profile = { name:$('#set-name').value, job:$('#set-job').value, weight:$('#set-weight').value, city:$('#set-city').value };
-  save(); alert('个人信息已保存');
+  state.title = $('#set-title').value || 'WorkBuddy';
+  save(); renderBrand(); alert('信息已保存');
+}
+function saveNav(){
+  NAV_ORDER.forEach(p=>{
+    const v = document.getElementById('nav-'+p).value.trim();
+    if (v) state.nav[p] = v;
+  });
+  save(); renderNav(); alert('导航名称已保存');
 }
 function renderSettings(){
+  $('#set-title').value=state.title||'WorkBuddy';
   $('#set-name').value=state.profile.name||'';
   $('#set-job').value=state.profile.job||'';
   $('#set-weight').value=state.profile.weight||'';
   $('#set-city').value=state.profile.city||'';
+  $('#nav-names').innerHTML = NAV_ORDER.map(p=>`<div class="field"><label>${NAV_ICONS[p]}</label><input id="nav-${p}" value="${state.nav[p]||''}" /></div>`).join('');
   renderSwatches();
   $('#theme-toggle').checked = state.theme==='dark';
 }
@@ -1047,7 +1080,9 @@ function resetAll(){
 /* =========================================================
    8. 导航 + 移动端汉堡菜单
    ========================================================= */
+let currentPage = 'home';
 function switchPage(page){
+  currentPage = page;
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.page===page));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+page).classList.add('active');
@@ -1060,9 +1095,13 @@ function switchPage(page){
   closeSidebar();
   window.scrollTo(0,0);
 }
-document.querySelectorAll('.nav-item').forEach(btn=>{
-  btn.addEventListener('click', ()=> switchPage(btn.dataset.page));
-});
+/* 根据 state.nav 渲染导航（支持自定义菜单标题，切换页面后保留高亮） */
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = NAV_ORDER.map(p=>`
+    <button class="nav-item ${p===currentPage?'active':''}" data-page="${p}"><span class="ico">${NAV_ICONS[p]}</span><span class="label">${state.nav[p]||NAV_DEFAULTS[p]}</span></button>`).join('');
+  nav.querySelectorAll('.nav-item').forEach(btn=> btn.addEventListener('click', ()=> switchPage(btn.dataset.page)));
+}
 function openSidebar(){ $('#sidebar').classList.add('open'); $('#overlay').classList.add('show'); }
 function closeSidebar(){ $('#sidebar').classList.remove('open'); $('#overlay').classList.remove('show'); }
 $('#hamburger').addEventListener('click', openSidebar);
@@ -1080,6 +1119,7 @@ state = loadState();
 applyTheme();
 $('#acc-date').value = ymd(today);
 renderAll();
+renderNav();
 
 /* 注册 Service Worker（PWA 离线 / 桌面安装） */
 if('serviceWorker' in navigator){
