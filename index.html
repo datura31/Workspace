@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light" data-accent="blue">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>WorkBuddy 个人工作台</title>
+
+<!-- ===== PWA / 移动端桌面图标相关 ===== -->
+<meta name="theme-color" content="#5b6b7f" />
+<link rel="manifest" href="./manifest.json" />
+<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="WorkBuddy" />
+
+<style>
+  /* ============ 主题变量 ============ */
+  /* 基础浅/暗配色 */
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #2c3e50;
+    --text-sub: #7a8794;
+    --border: #e6eaf0;
+    --shadow: 0 2px 10px rgba(40,60,90,.06);
+    --shadow-hover: 0 4px 16px rgba(40,60,90,.10);
+    --success: #4caf86;
+    --warn: #e0a458;
+    --danger: #d97878;
+    --radius: 10px;
+  }
+  [data-theme="dark"] {
+    --bg: #1b2027;
+    --card: #232a33;
+    --text: #e6ebf1;
+    --text-sub: #9aa7b5;
+    --border: #333d49;
+    --shadow: 0 2px 10px rgba(0,0,0,.35);
+    --shadow-hover: 0 4px 16px rgba(0,0,0,.45);
+    --success: #5cc79a;
+    --warn: #e9b56e;
+    --danger: #e08c8c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "PingFang SC","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    transition: background .3s ease, color .3s ease;
+    overscroll-behavior-y: none;
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input, select, textarea { font-family: inherit; font-size: 14px; }
+
+  /* ============ 顶部栏（仅手机端显示） ============ */
+  .topbar {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; height: 54px; z-index: 30;
+    background: var(--card); border-bottom: 1px solid var(--border);
+    align-items: center; gap: 12px; padding: 0 14px;
+  }
+  .hamburger {
+    border: none; background: transparent; font-size: 22px; color: var(--primary);
+    width: 40px; height: 40px; border-radius: 8px;
+  }
+  .hamburger:active { background: var(--primary-soft); }
+  .tb-title { font-weight: 700; font-size: 16px; color: var(--primary); }
+
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 19;
+  }
+  .overlay.show { display: block; }
+
+  /* ============ 左侧固定导航 ============ */
+  .sidebar {
+    width: 232px; flex-shrink: 0; background: var(--card);
+    border-right: 1px solid var(--border);
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 20;
+    display: flex; flex-direction: column; padding: 22px 14px;
+    transition: transform .28s ease, background .3s ease;
+  }
+  .sidebar .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 18px; font-size: 17px; font-weight: 700; color: var(--primary); }
+  .sidebar .brand .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--primary); color: #fff; display: grid; place-items: center; }
+  .nav { display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto; }
+  .nav-item {
+    display: flex; align-items: center; gap: 11px; padding: 10px 13px; border-radius: 9px;
+    color: var(--text-sub); font-size: 13.5px; border: none; background: transparent;
+    text-align: left; width: 100%; transition: background .18s ease, color .18s ease;
+  }
+  .nav-item .ico { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+  .nav-item .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-item:hover { background: var(--primary-soft); color: var(--text); }
+  .nav-item.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+  .sidebar .foot { padding: 12px 10px 0; font-size: 11.5px; color: var(--text-sub); border-top: 1px solid var(--border); }
+
+  /* ============ 右侧主面板 ============ */
+  .main { margin-left: 232px; flex: 1; padding: 28px 34px 60px; min-width: 0; }
+  .page-head { margin-bottom: 22px; }
+  .page-head h1 { font-size: 22px; font-weight: 700; }
+  .page-head p { color: var(--text-sub); margin-top: 4px; font-size: 13px; }
+  .panel { display: none; animation: fade .25s ease; }
+  .panel.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ============ 卡片 ============ */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; transition: background .3s ease, box-shadow .2s ease; }
+  .card:hover { box-shadow: var(--shadow-hover); }
+  .card-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 600; margin-bottom: 14px; flex-wrap: wrap; }
+  .card-title .tag { font-size: 12px; color: var(--text-sub); font-weight: 400; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 18px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px,1fr)); gap: 18px; }
+  .mt { margin-top: 18px; }
+
+  /* ============ 任务清单 ============ */
+  .task-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .task-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; background: var(--primary-soft); animation: fade .2s ease; }
+  .task-item .check { width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--primary); flex-shrink: 0; display: grid; place-items: center; color: #fff; font-size: 12px; cursor: pointer; transition: background .15s ease; }
+  .task-item.done .check { background: var(--success); border-color: var(--success); }
+  .task-item .label { flex: 1; font-size: 13.5px; cursor: pointer; word-break: break-word; }
+  .task-item.done .label { text-decoration: line-through; color: var(--text-sub); }
+  .task-item .badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--card); color: var(--text-sub); border: 1px solid var(--border); flex-shrink: 0; }
+  .del { border: none; background: transparent; color: var(--text-sub); font-size: 14px; cursor: pointer; padding: 2px 7px; border-radius: 6px; flex-shrink: 0; transition: .15s; }
+  .del:hover { color: var(--danger); background: var(--bg); }
+
+  /* ============ 新增输入行 ============ */
+  .add-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .add-row input { flex: 1; min-width: 140px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); outline: none; }
+  .add-row input:focus { border-color: var(--primary); }
+
+  /* ============ 日历 ============ */
+  .cal { width: 100%; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-weight: 600; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+  .cal-grid .wd { text-align: center; font-size: 11px; color: var(--text-sub); padding: 4px 0; }
+  .cal-cell { aspect-ratio: 1/1; border-radius: 7px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; position: relative; cursor: default; border: 1px solid transparent; }
+  .cal-cell.clickable { cursor: pointer; }
+  .cal-cell.clickable:hover { background: var(--primary-soft); }
+  .cal-cell.muted { color: var(--text-sub); opacity: .45; }
+  .cal-cell.today { background: var(--primary); color: #fff; font-weight: 700; }
+  .cal-cell.selected { outline: 2px solid var(--warn); outline-offset: -2px; }
+  .cal-cell .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--warn); margin-top: 2px; }
+  .cal-cell.today .dot { background: #fff; }
+  .cal-event-input { width: 100%; margin-top: 12px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+  .cal-selected { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: var(--primary-soft); font-size: 13px; }
+  .muted { color: var(--text-sub); }
+
+  /* ============ 表单 / 按钮 ============ */
+  .form-row { display: flex; flex-wrap: wrap; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 130px; }
+  .field label { font-size: 12.5px; color: var(--text-sub); }
+  .field input, .field select, .field textarea { padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); outline: none; transition: border-color .15s ease; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary); }
+  textarea { resize: vertical; }
+  .btn { padding: 9px 18px; border-radius: 8px; border: none; background: var(--primary); color: #fff; font-weight: 500; transition: background .15s ease, transform .1s ease; }
+  .btn:hover { background: var(--primary-hover); }
+  .btn:active { transform: scale(.97); }
+  .btn.ghost { background: var(--primary-soft); color: var(--primary); }
+  .btn.sm { padding: 7px 13px; font-size: 13px; }
+  .btn.danger { background: var(--danger); }
+  .btn.danger:hover { background: #c45f5f; }
+
+  /* ============ 表格 ============ */
+  .tbl-wrap { overflow-x: auto; }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.tbl th, table.tbl td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.tbl th { color: var(--text-sub); font-weight: 500; font-size: 12.5px; }
+  .pill { font-size: 12px; padding: 2px 9px; border-radius: 20px; }
+  .pill.in { background: rgba(76,175,134,.15); color: var(--success); }
+  .pill.out { background: rgba(217,120,120,.15); color: var(--danger); }
+  .amt-out { color: var(--danger); }
+  .amt-in { color: var(--success); }
+  .empty { color: var(--text-sub); text-align: center; padding: 22px 0; }
+
+  /* ============ 统计看板 ============ */
+  .stat-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 16px; margin-bottom: 20px; }
+  .stat-box { padding: 18px 20px; }
+  .stat-box .k { font-size: 13px; color: var(--text-sub); }
+  .stat-box .v { font-size: 26px; font-weight: 700; margin-top: 6px; }
+  .stat-box .v.in { color: var(--success); }
+  .stat-box .v.out { color: var(--danger); }
+  .pie-wrap { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  .pie { width: 160px; height: 160px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px var(--border); }
+  .legend { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .legend li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend .sw { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .bars { display: flex; align-items: flex-end; gap: 14px; height: 220px; padding-top: 10px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+  .bar-pair { display: flex; gap: 4px; align-items: flex-end; height: 100%; width: 100%; justify-content: center; }
+  .bar { width: 18px; border-radius: 5px 5px 0 0; transition: height .4s ease; }
+  .bar.in { background: var(--success); }
+  .bar.out { background: var(--danger); }
+  .bar-x { font-size: 12px; color: var(--text-sub); }
+
+  /* ============ 进度条 ============ */
+  .progress { height: 10px; border-radius: 20px; background: var(--primary-soft); overflow: hidden; margin-top: 4px; }
+  .progress-bar { height: 100%; background: var(--primary); border-radius: 20px; transition: width .4s ease; }
+  .point-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 12px; }
+  .point-card { padding: 13px 15px; border-radius: 9px; background: var(--primary-soft); border-left: 3px solid var(--primary); }
+  .point-card h4 { font-size: 13.5px; margin-bottom: 4px; }
+  .point-card p { font-size: 12.5px; color: var(--text-sub); }
+
+  /* ============ 设置 ============ */
+  .swatches { display: flex; gap: 12px; flex-wrap: wrap; }
+  .swatch { width: 34px; height: 34px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform .15s ease; }
+  .swatch:hover { transform: scale(1.08); }
+  .swatch.active { border-color: var(--text); }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-row .desc { font-size: 12.5px; color: var(--text-sub); margin-top: 2px; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { display: none; }
+  .switch .slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; transition: .25s; }
+  .switch .slider::before { content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .25s; }
+  .switch input:checked + .slider { background: var(--primary); }
+  .switch input:checked + .slider::before { transform: translateX(20px); }
+  .note { font-size: 12.5px; color: var(--text-sub); background: var(--primary-soft); padding: 10px 13px; border-radius: 8px; margin-top: 10px; }
+
+  /* ============ 响应式：手机端汉堡菜单 ============ */
+  @media (max-width: 860px) {
+    .topbar { display: flex; }
+    .sidebar { transform: translateX(-100%); width: 250px; padding-top: 18px; }
+    .sidebar.open { transform: translateX(0); box-shadow: 0 0 30px rgba(0,0,0,.25); }
+    .main { margin-left: 0; padding: 70px 16px 50px; }
+    .page-head h1 { font-size: 19px; }
+    .bars { height: 170px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 手机端顶部栏 -->
+<div class="topbar">
+  <button class="hamburger" id="hamburger" aria-label="菜单">☰</button>
+  <span class="tb-title">WorkBuddy</span>
+</div>
+<div class="overlay" id="overlay"></div>
+
+<div class="layout" style="display:flex;min-height:100vh;">
+
+  <!-- ============ 左侧固定导航 ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><span class="logo">W</span><span>WorkBuddy</span></div>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-page="home"><span class="ico">🏠</span><span class="label">功能工作台主页</span></button>
+      <button class="nav-item" data-page="plan"><span class="ico">📋</span><span class="label">个人计划</span></button>
+      <button class="nav-item" data-page="account"><span class="ico">💰</span><span class="label">每日记账功能</span></button>
+      <button class="nav-item" data-page="stats"><span class="ico">📊</span><span class="label">收支统计看板</span></button>
+      <button class="nav-item" data-page="fitness"><span class="ico">🏃</span><span class="label">减脂运动和饮食记录</span></button>
+      <button class="nav-item" data-page="diary"><span class="ico">✏️</span><span class="label">成功日记</span></button>
+      <button class="nav-item" data-page="calendar"><span class="ico">📅</span><span class="label">日历</span></button>
+      <button class="nav-item" data-page="exam"><span class="ico">📚</span><span class="label">央国企考试学习</span></button>
+      <button class="nav-item" data-page="datalearn"><span class="ico">📈</span><span class="label">数据分析学习</span></button>
+      <button class="nav-item" data-page="creator"><span class="ico">🎬</span><span class="label">创作者中心</span></button>
+      <button class="nav-item" data-page="setting"><span class="ico">⚙️</span><span class="label">个人工作台设置</span></button>
+    </nav>
+    <div class="foot">PWA 离线版 · 数据本地存储</div>
+  </aside>
+
+  <!-- ============ 右侧主面板 ============ -->
+  <main class="main">
+
+    <!-- 1. 功能工作台主页 -->
+    <section class="panel active" id="page-home">
+      <div class="page-head"><h1>功能工作台主页</h1><p>你的今日概览 · 任务、日历与运动一目了然，所有操作自动保存到本地</p></div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title">📌 今日任务 <span class="tag" id="home-task-count"></span></div>
+          <ul class="task-list" id="home-tasks"></ul>
+          <div class="add-row"><input id="home-task-input" placeholder="输入任务，回车添加" onkeydown="if(event.key==='Enter')addTo('tasks','home-task-input',{tag:'自定义'})" /><button class="btn sm" onclick="addTo('tasks','home-task-input',{tag:'自定义'})">添加</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📅 本月日历 <span class="tag" id="home-cal-month"></span></div>
+          <div id="home-calendar"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🔥 今日运动 <span class="tag" id="home-fit-total"></span></div>
+          <ul class="task-list" id="home-fitness"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 个人计划 -->
+    <section class="panel" id="page-plan">
+      <div class="page-head"><h1>个人计划</h1><p>中长期目标与每日任务清单，新增 / 删除 / 勾选完成，自动本地保存</p></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🎯 中长期计划 <span class="tag">目标</span></div>
+          <ul class="task-list" id="plan-long"></ul>
+          <div class="add-row"><input id="plan-long-input" placeholder="输入中长期目标" onkeydown="if(event.key==='Enter')addTo('plans','plan-long-input',{tag:'目标'})" /><button class="btn sm" onclick="addTo('plans','plan-long-input',{tag:'目标'})">添加</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">✅ 每日任务清单 <span class="tag">每日</span></div>
+          <ul class="task-list" id="plan-daily"></ul>
+          <div class="add-row"><input id="plan-daily-input" placeholder="输入每日任务" onkeydown="if(event.key==='Enter')addTo('tasks','plan-daily-input',{tag:'每日'})" /><button class="btn sm" onclick="addTo('tasks','plan-daily-input',{tag:'每日'})">添加</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 每日记账功能 -->
+    <section class="panel" id="page-account">
+      <div class="page-head"><h1>每日记账功能</h1><p>收支录入与流水，新增 / 删除后看板图表即时更新</p></div>
+      <div class="card">
+        <div class="card-title">➕ 记账录入</div>
+        <div class="form-row">
+          <div class="field"><label>类型</label><select id="acc-type"><option value="out">支出</option><option value="in">收入</option></select></div>
+          <div class="field"><label>分类</label><select id="acc-cat"><option>餐饮</option><option>交通</option><option>购物</option><option>娱乐</option><option>工资</option><option>其他</option></select></div>
+          <div class="field"><label>金额（元）</label><input id="acc-amount" type="number" placeholder="0.00" /></div>
+          <div class="field"><label>日期</label><input id="acc-date" type="date" /></div>
+          <div class="field" style="flex:2;"><label>备注</label><input id="acc-note" type="text" placeholder="选填，例如：午餐" /></div>
+        </div>
+        <div style="margin-top:14px;"><button class="btn" onclick="addLedger()">保存记账</button></div>
+      </div>
+      <div class="card ledger mt">
+        <div class="card-title">📒 记账流水</div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>日期</th><th>类型</th><th>分类</th><th>备注</th><th style="text-align:right;">金额</th><th></th></tr></thead>
+          <tbody id="ledger-body"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <!-- 4. 收支统计看板 -->
+    <section class="panel" id="page-stats">
+      <div class="page-head"><h1>收支统计看板</h1><p>基于本地数据的可视化分析</p></div>
+      <div class="stat-cards">
+        <div class="card stat-box"><div class="k">总收入</div><div class="v in" id="stat-in">¥0</div></div>
+        <div class="card stat-box"><div class="k">总支出</div><div class="v out" id="stat-out">¥0</div></div>
+        <div class="card stat-box"><div class="k">结余</div><div class="v" id="stat-bal">¥0</div></div>
+        <div class="card stat-box"><div class="k">记账笔数</div><div class="v" id="stat-cnt">0</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🥧 支出分类占比</div>
+          <div class="pie-wrap"><div class="pie" id="pie"></div><ul class="legend" id="pie-legend"></ul></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📶 月度收支趋势</div>
+          <div class="bars" id="bars"></div>
+          <div style="display:flex;gap:18px;justify-content:center;margin-top:8px;font-size:12px;color:var(--text-sub);">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--success);"></span> 收入</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--danger);"></span> 支出</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. 减脂运动和饮食记录 -->
+    <section class="panel" id="page-fitness">
+      <div class="page-head"><h1>减脂运动和饮食记录</h1><p>运动消耗与三餐热量，支持新增 / 删除</p></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">🏃 运动记录 <button class="btn sm ghost" onclick="addExercise()">+ 添加运动</button></div>
+          <div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>日期</th><th>类型</th><th>时长</th><th>消耗</th><th></th></tr></thead>
+            <tbody id="fit-body"></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <div class="card-title">🍱 饮食记录 <button class="btn sm ghost" onclick="addMeal()">+ 添加餐食</button></div>
+          <div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>日期</th><th>餐次</th><th>内容</th><th>热量</th><th></th></tr></thead>
+            <tbody id="meal-body"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 成功日记 -->
+    <section class="panel" id="page-diary">
+      <div class="page-head"><h1>成功日记</h1><p>记录每天做成的小事，每条可删除</p></div>
+      <div class="card">
+        <div class="card-title">✍️ 写一条成功日记</div>
+        <div class="field"><textarea id="diary-input" rows="3" placeholder="今天我完成了……"></textarea></div>
+        <div style="margin-top:12px;"><button class="btn" onclick="addDiary()">保存日记</button></div>
+      </div>
+      <div class="diary-list mt" id="diary-list" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </section>
+
+    <!-- 7. 日历 -->
+    <section class="panel" id="page-calendar">
+      <div class="page-head"><h1>日历</h1><p>点击日期可添加 / 删除事件标记（任务 / 运动 / 记账）</p></div>
+      <div class="card">
+        <div id="full-calendar"></div>
+        <input class="cal-event-input" id="cal-event-input" placeholder="为选中日期添加事件，例如：健身 / 还款日" />
+        <div style="margin-top:10px;display:flex;gap:8px;"><button class="btn sm" onclick="addCalEvent()">添加标记</button></div>
+        <div class="cal-selected" id="cal-selected"></div>
+        <div class="note">事件保存在本地存储，刷新不丢失；可点击「删除标记」清除。</div>
+      </div>
+    </section>
+
+    <!-- 8. 央国企考试学习 -->
+    <section class="panel" id="page-exam">
+      <div class="page-head"><h1>央国企考试学习</h1><p>行测 / 公基 / 时政 / 申论 · 进度、任务、考点、刷题、笔记一体化</p></div>
+      <div class="stat-cards" id="exam-stats"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">✅ 待学任务清单 <span class="tag">行测·公基·申论</span></div>
+          <ul class="task-list" id="exam-tasks"></ul>
+          <div class="add-row"><input id="exam-task-input" placeholder="输入学习任务" onkeydown="if(event.key==='Enter')addTo('exam.tasks','exam-task-input',{})" /><button class="btn sm" onclick="addTo('exam.tasks','exam-task-input',{})">添加</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">💡 高频考点摘要 <button class="btn sm ghost" onclick="addPoint('exam.points')">+ 添加考点</button></div>
+          <div class="point-cards" id="exam-points"></div>
+        </div>
+      </div>
+      <div class="card mt">
+        <div class="card-title">📝 刷题记录 <button class="btn sm ghost" onclick="addExamPractice()">+ 添加记录</button></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>日期</th><th>科目</th><th>题量</th><th>正确率</th><th></th></tr></thead>
+          <tbody id="exam-practice"></tbody>
+        </table></div>
+      </div>
+      <div class="card mt">
+        <div class="card-title">📒 学习笔记</div>
+        <div class="field"><textarea id="exam-notes" rows="3" placeholder="记录错题、易混点、答题模板……"></textarea></div>
+        <div style="margin-top:10px;"><button class="btn sm" onclick="saveNotes('exam')">保存笔记</button></div>
+      </div>
+    </section>
+
+    <!-- 9. 数据分析学习 -->
+    <section class="panel" id="page-datalearn">
+      <div class="page-head"><h1>数据分析学习</h1><p>Python 数据分析 / Excel / 数据可视化 · 课程、知识点、练习、笔记</p></div>
+      <div class="stat-cards" id="dl-stats"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">✅ 待学习课程清单 <span class="tag">Python·Excel·可视化</span></div>
+          <ul class="task-list" id="dl-tasks"></ul>
+          <div class="add-row"><input id="dl-task-input" placeholder="输入课程任务" onkeydown="if(event.key==='Enter')addTo('dataLearn.tasks','dl-task-input',{})" /><button class="btn sm" onclick="addTo('dataLearn.tasks','dl-task-input',{})">添加</button></div>
+        </div>
+        <div class="card">
+          <div class="card-title">💡 知识点卡片 <button class="btn sm ghost" onclick="addPoint('dataLearn.points')">+ 添加知识点</button></div>
+          <div class="point-cards" id="dl-points"></div>
+        </div>
+      </div>
+      <div class="card mt">
+        <div class="card-title">📝 练习记录 <button class="btn sm ghost" onclick="addDataPractice()">+ 添加记录</button></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>日期</th><th>内容</th><th>题量</th><th>得分</th><th></th></tr></thead>
+          <tbody id="dl-practice"></tbody>
+        </table></div>
+      </div>
+      <div class="card mt">
+        <div class="card-title">📒 学习笔记</div>
+        <div class="field"><textarea id="dl-notes" rows="3" placeholder="记录函数用法、分析思路、踩坑点……"></textarea></div>
+        <div style="margin-top:10px;"><button class="btn sm" onclick="saveNotes('dataLearn')">保存笔记</button></div>
+      </div>
+    </section>
+
+    <!-- 10. 创作者中心 -->
+    <section class="panel" id="page-creator">
+      <div class="page-head"><h1>创作者中心</h1><p>自媒体创作数据、选题、待办与草稿一站式管理</p></div>
+      <div class="stat-cards" id="creator-stats"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">💡 选题库清单 <button class="btn sm ghost" onclick="addTopic()">+ 添加选题</button></div>
+          <ul class="task-list" id="creator-topics"></ul>
+        </div>
+        <div class="card">
+          <div class="card-title">✅ 创作待办任务</div>
+          <ul class="task-list" id="creator-todos"></ul>
+          <div class="add-row"><input id="creator-todo-input" placeholder="输入创作待办" onkeydown="if(event.key==='Enter')addTo('creator.todos','creator-todo-input',{})" /><button class="btn sm" onclick="addTo('creator.todos','creator-todo-input',{})">添加</button></div>
+        </div>
+      </div>
+      <div class="card mt">
+        <div class="card-title">📝 草稿笔记区</div>
+        <div class="field"><textarea id="creator-drafts" rows="3" placeholder="随手记录灵感、标题、大纲……"></textarea></div>
+        <div style="margin-top:10px;"><button class="btn sm" onclick="saveNotes('creator')">保存草稿</button></div>
+      </div>
+    </section>
+
+    <!-- 11. 个人工作台设置 -->
+    <section class="panel" id="page-setting">
+      <div class="page-head"><h1>个人工作台设置</h1><p>主题配色、明暗模式、个人信息与数据管理</p></div>
+      <div class="card">
+        <div class="card-title">🎨 主题颜色</div>
+        <div class="setting-row" style="border:none;">
+          <div><div>选择主色</div><div class="desc">点击切换，页面实时预览</div></div>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div class="setting-row">
+          <div><div>暗黑模式</div><div class="desc">切换浅色 / 暗色主题</div></div>
+          <label class="switch"><input type="checkbox" id="theme-toggle" onchange="toggleTheme()" /><span class="slider"></span></label>
+        </div>
+      </div>
+
+      <div class="card mt">
+        <div class="card-title">👤 个人基础信息</div>
+        <div class="form-row">
+          <div class="field"><label>昵称</label><input id="set-name" /></div>
+          <div class="field"><label>职业</label><input id="set-job" /></div>
+          <div class="field"><label>目标体重(kg)</label><input id="set-weight" /></div>
+          <div class="field"><label>城市</label><input id="set-city" /></div>
+        </div>
+        <div style="margin-top:14px;"><button class="btn" onclick="saveProfile()">保存信息</button></div>
+      </div>
+
+      <div class="card mt">
+        <div class="card-title">💾 数据管理</div>
+        <div class="setting-row">
+          <div><div>导出 / 导入备份</div><div class="desc">导出 JSON 备份到本地，或导入之前备份的文件恢复数据</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn sm ghost" onclick="exportJSON()">导出 JSON</button>
+            <button class="btn sm ghost" onclick="document.getElementById('import-file').click()">导入 JSON</button>
+            <input type="file" id="import-file" accept="application/json,.json" style="display:none;" onchange="importJSON(event)" />
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div>一键重置全部数据</div><div class="desc">清空本地存储，恢复为默认模拟数据（不可撤销）</div></div>
+          <button class="btn sm danger" onclick="resetAll()">重置全部数据</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* =========================================================
+   1. 配色方案（accent 主色 + 明暗主题的 soft/hover）
+   ========================================================= */
+const ACCENTS = {
+  blue:   { primary:'#5b6b7f', soft:'#eef2f7', softDark:'#2a3340', hover:'#4a596b' },
+  green:  { primary:'#4c9a82', soft:'#e8f3ef', softDark:'#243a33', hover:'#3d826d' },
+  purple: { primary:'#7a6bb0', soft:'#efeaf8', softDark:'#2c2740', hover:'#6657a0' },
+  orange: { primary:'#d08a4e', soft:'#f8efe4', softDark:'#3a2f22', hover:'#bd7a40' }
+};
+
+/* =========================================================
+   2. 默认模拟数据（首次打开 / 重置时使用）
+   ========================================================= */
+function defaultState(){
+  return {
+    theme: 'light',
+    accent: 'blue',
+    profile: { name:'小布', job:'产品经理', weight:'62', city:'深圳' },
+    tasks: [
+      { id:uid(), label:'晨间阅读 30 分钟', done:true,  tag:'习惯' },
+      { id:uid(), label:'完成工作台首页原型', done:false, tag:'工作' },
+      { id:uid(), label:'健身 40 分钟', done:false, tag:'健康' },
+      { id:uid(), label:'回复客户邮件', done:true,  tag:'工作' }
+    ],
+    plans: [
+      { id:uid(), label:'3 个月减重 5kg', done:false, tag:'减脂' },
+      { id:uid(), label:'Q3 上线个人项目 v1.0', done:false, tag:'项目' },
+      { id:uid(), label:'每天阅读一本书的 1 章', done:true, tag:'成长' },
+      { id:uid(), label:'存够旅行基金 ¥20000', done:false, tag:'财务' }
+    ],
+    ledgers: [
+      { id:uid(), date:'2026-07-01', type:'in',  cat:'工资', amount:12000, note:'月度工资' },
+      { id:uid(), date:'2026-07-03', type:'out', cat:'餐饮', amount:58,    note:'午餐' },
+      { id:uid(), date:'2026-07-05', type:'out', cat:'购物', amount:329,   note:'运动鞋' },
+      { id:uid(), date:'2026-07-08', type:'out', cat:'交通', amount:30,    note:'打车' },
+      { id:uid(), date:'2026-07-12', type:'out', cat:'娱乐', amount:120,   note:'电影' },
+      { id:uid(), date:'2026-07-15', type:'out', cat:'餐饮', amount:76,    note:'聚餐' },
+      { id:uid(), date:'2026-07-18', type:'in',  cat:'其他', amount:800,   note:'兼职' },
+      { id:uid(), date:'2026-07-22', type:'out', cat:'购物', amount:210,   note:'日用品' }
+    ],
+    exercises: [
+      { id:uid(), date:'2026-07-26', type:'跑步',   duration:'35 分钟', kcal:320 },
+      { id:uid(), date:'2026-07-27', type:'力量训练', duration:'45 分钟', kcal:280 },
+      { id:uid(), date:'2026-07-28', type:'骑行',   duration:'50 分钟', kcal:410 }
+    ],
+    meals: [
+      { id:uid(), date:'2026-07-28', time:'早餐', food:'燕麦+鸡蛋+牛奶', kcal:380 },
+      { id:uid(), date:'2026-07-28', time:'午餐', food:'鸡胸肉沙拉', kcal:520 },
+      { id:uid(), date:'2026-07-28', time:'晚餐', food:'杂粮饭+清蒸鱼', kcal:460 }
+    ],
+    diaries: [
+      { id:uid(), date:'2026-07-26', content:'坚持早起跑步，状态很棒，今天精力充沛。' },
+      { id:uid(), date:'2026-07-27', content:'完成了工作台的核心原型，得到同事认可。' },
+      { id:uid(), date:'2026-07-28', content:'读完《深度工作》前两章，并整理了读书笔记。' }
+    ],
+    calEvents: {
+      '2026-07-28': '团队周会 + 健身',
+      '2026-07-30': '信用卡还款日'
+    },
+    exam: {
+      tasks: [
+        { id:uid(), label:'行测：言语理解 20 题', done:true },
+        { id:uid(), label:'公基：时政半月刊精读', done:false },
+        { id:uid(), label:'申论：大作文框架练习', done:false },
+        { id:uid(), label:'真题模考一套（限时）', done:false }
+      ],
+      points: [
+        { t:'行测·资料分析', d:'速算技巧：截位直除、分数比较，先看选项再算。' },
+        { t:'公基·时政', d:'关注近半年重大会议、政策文件与数据指标。' },
+        { t:'申论·归纳概括', d:'分条作答、关键词前置，结合材料不空想。' },
+        { t:'常识·法律', d:'宪法、民法、行政法高频考点需熟记。' }
+      ],
+      practice: [
+        { id:uid(), date:'2026-07-25', subject:'行测', count:30, score:'83%' },
+        { id:uid(), date:'2026-07-27', subject:'申论', count:1,  score:'中' }
+      ],
+      notes: '资料分析要注意单位换算；申论多积累规范表述。'
+    },
+    dataLearn: {
+      tasks: [
+        { id:uid(), label:'Python：Pandas 数据清洗实战', done:true },
+        { id:uid(), label:'Excel：数据透视表进阶', done:false },
+        { id:uid(), label:'可视化：用 Plotly 做交互图表', done:false },
+        { id:uid(), label:'完成一个完整分析项目', done:false }
+      ],
+      points: [
+        { t:'Pandas', d:'groupby / merge / pivot_table 是三大核心操作。' },
+        { t:'Excel', d:'数据透视表 + VLOOKUP/XLOOKUP 解决大部分报表。' },
+        { t:'可视化', d:'先明确结论再选图表，避免无意义装饰。' },
+        { t:'统计', d:'均值/中位数/分位数，关注分布而非单点。' }
+      ],
+      practice: [
+        { id:uid(), date:'2026-07-24', subject:'Pandas 练习', count:5, score:'90' },
+        { id:uid(), date:'2026-07-26', subject:'可视化作业', count:2, score:'85' }
+      ],
+      notes: 'Matplotlib 与 Seaborn 搭配使用效率最高。'
+    },
+    creator: {
+      stats: { followers:'1,280', views:'3.2w', articles:24 },
+      topics: [
+        { id:uid(), title:'《我用 PWA 把网页变成手机 App》', type:'技术' },
+        { id:uid(), title:'打工人极简记账法', type:'生活' },
+        { id:uid(), title:'30 天减脂复盘', type:'健康' }
+      ],
+      todos: [
+        { id:uid(), label:'剪辑本周 vlog 粗剪', done:false },
+        { id:uid(), label:'回复粉丝评论', done:true },
+        { id:uid(), label:'规划下月选题 4 个', done:false }
+      ],
+      drafts: '标题备选：把工作台装进口袋——PWA 入门实录。'
+    }
+  };
+}
+
+/* =========================================================
+   3. localStorage 持久化
+   ========================================================= */
+const STORAGE_KEY = 'workbuddy_pwa_state_v1';
+let state;
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+// 为考点/知识点等老数据补齐 id，保证删除/编辑可按 id 精准命中
+function normalize(s){
+  ['exam','dataLearn'].forEach(k=>{
+    (s[k] && s[k].points || []).forEach(it=>{ if(it && !it.id) it.id = uid(); });
+  });
+  return s;
+}
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return normalize(JSON.parse(raw));
+  } catch(e){ console.warn('读取本地数据失败', e); }
+  return normalize(defaultState());
+}
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+/* 按路径读取 / 操作数组（用于通用增删） */
+function getArr(path){ return path.split('.').reduce((o,k)=>o[k], state); }
+function toggleItem(path, id){
+  const a = getArr(path); const it = a.find(x=>x.id===id);
+  if (it){ it.done = !it.done; save(); renderAll(); }
+}
+function delItem(path, id){
+  const a = getArr(path); const i = a.findIndex(x=>x.id===id);
+  if (i>-1){ a.splice(i,1); save(); renderAll(); }
+}
+function addTo(path, inputId, extra){
+  const inp = document.getElementById(inputId);
+  const v = inp.value.trim();
+  if (!v){ alert('请输入内容'); return; }
+  getArr(path).unshift(Object.assign({ id:uid(), label:v, done:false }, extra||{}));
+  inp.value=''; save(); renderAll();
+}
+
+/* =========================================================
+   4. 工具
+   ========================================================= */
+const $ = (s)=>document.querySelector(s);
+const fmt = (n)=>'¥'+Number(n).toLocaleString('zh-CN',{maximumFractionDigits:0});
+const today = new Date();
+const ymd = (d)=> d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const pad = (n)=>String(n).padStart(2,'0');
+
+/* 通用勾选清单渲染（含删除按钮） */
+function renderCheckList(path, elId, badgeFn){
+  const el = document.getElementById(elId);
+  const list = getArr(path);
+  if (!list.length){ el.innerHTML = '<li class="empty">暂无内容，使用上方输入框添加</li>'; return; }
+  el.innerHTML = list.map(it=>`
+    <li class="task-item ${it.done?'done':''}">
+      <span class="check" onclick="toggleItem('${path}','${it.id}')">${it.done?'✓':''}</span>
+      <span class="label" onclick="toggleItem('${path}','${it.id}')">${it.label}</span>
+      ${badgeFn?`<span class="badge">${badgeFn(it)}</span>`:''}
+      <button class="del" title="删除" onclick="delItem('${path}','${it.id}')">✕</button>
+    </li>`).join('');
+}
+
+/* =========================================================
+   5. 各页面渲染
+   ========================================================= */
+function renderHome(){
+  renderCheckList('tasks','home-tasks', it=>it.tag);
+  const done = state.tasks.filter(t=>t.done).length;
+  $('#home-task-count').textContent = `${done}/${state.tasks.length} 已完成`;
+  buildCalendar('home-calendar', true);
+  $('#home-cal-month').textContent = (today.getMonth()+1)+'月';
+  const tf = state.exercises.filter(e=>e.date===ymd(today));
+  const totalMin = tf.reduce((s,e)=> s+parseInt(e.duration)||0, 0);
+  $('#home-fit-total').textContent = tf.length ? `合计 ${totalMin} 分钟` : '今日暂无';
+  $('#home-fitness').innerHTML = tf.length
+    ? tf.map(e=>`<li class="task-item"><span class="check" style="border:none;color:var(--warn);">🔥</span><span class="label">${e.type}</span><span class="badge">${e.duration} · ${e.kcal}kcal</span></li>`).join('')
+    : '<li class="empty">今天还没有运动记录～</li>';
+}
+
+function renderPlan(){
+  renderCheckList('plans','plan-long', it=>it.tag);
+  renderCheckList('tasks','plan-daily', it=>it.tag);
+}
+
+function renderLedger(){
+  const body = $('#ledger-body');
+  if (!state.ledgers.length){ body.innerHTML = '<tr><td colspan="6" class="empty">暂无记账记录</td></tr>'; return; }
+  body.innerHTML = state.ledgers.slice().reverse().map(l=>`
+    <tr>
+      <td>${l.date}</td>
+      <td><span class="pill ${l.type==='in'?'in':'out'}">${l.type==='in'?'收入':'支出'}</span></td>
+      <td>${l.cat}</td><td>${l.note||'—'}</td>
+      <td style="text-align:right;" class="${l.type==='in'?'amt-in':'amt-out'}">${l.type==='in'?'+':'-'}${fmt(l.amount)}</td>
+      <td><button class="del" onclick="delItem('ledgers','${l.id}')">✕</button></td>
+    </tr>`).join('');
+}
+
+function renderStats(){
+  const totalIn = state.ledgers.filter(l=>l.type==='in').reduce((s,l)=>s+l.amount,0);
+  const totalOut = state.ledgers.filter(l=>l.type==='out').reduce((s,l)=>s+l.amount,0);
+  $('#stat-in').textContent = fmt(totalIn);
+  $('#stat-out').textContent = fmt(totalOut);
+  $('#stat-bal').textContent = fmt(totalIn-totalOut);
+  $('#stat-cnt').textContent = state.ledgers.length;
+
+  const byCat = {};
+  state.ledgers.filter(l=>l.type==='out').forEach(l=> byCat[l.cat]=(byCat[l.cat]||0)+l.amount);
+  const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const palette = ['#5b6b7f','#4caf86','#e0a458','#d97878','#7e9cc4','#9b8bc4'];
+  let acc=0; const stops=[];
+  entries.forEach((e,i)=>{ const pct=e[1]/totalOut*100; stops.push(`${palette[i%palette.length]} ${acc.toFixed(1)}% ${(acc+pct).toFixed(1)}%`); acc+=pct; });
+  $('#pie').style.background = `conic-gradient(${stops.join(',')})`;
+  $('#pie-legend').innerHTML = entries.length ? entries.map((e,i)=>`
+    <li><span class="sw" style="background:${palette[i%palette.length]}"></span>${e[0]} · ${fmt(e[1])} (${(e[1]/totalOut*100).toFixed(0)}%)</li>`).join('')
+    : '<li class="muted">暂无支出数据</li>';
+
+  const months=['2月','3月','4月','5月','6月','7月'];
+  const inData=[9800,10200,9500,11000,10500,12800];
+  const outData=[6200,5800,7100,6500,6900,1123];
+  const max=Math.max(...inData,...outData);
+  $('#bars').innerHTML = months.map((mo,i)=>`
+    <div class="bar-col">
+      <div class="bar-pair">
+        <div class="bar in" style="height:${(inData[i]/max*100).toFixed(0)}%" title="收入${fmt(inData[i])}"></div>
+        <div class="bar out" style="height:${(outData[i]/max*100).toFixed(0)}%" title="支出${fmt(outData[i])}"></div>
+      </div>
+      <div class="bar-x">${mo}</div>
+    </div>`).join('');
+}
+
+function renderFitness(){
+  const fb=$('#fit-body'), mb=$('#meal-body');
+  fb.innerHTML = state.exercises.length ? state.exercises.slice().reverse().map(e=>`
+    <tr><td>${e.date}</td><td>${e.type}</td><td>${e.duration}</td><td>${e.kcal} kcal</td><td><button class="del" onclick="delItem('exercises','${e.id}')">✕</button></td></tr>`).join('')
+    : '<tr><td colspan="5" class="empty">暂无运动记录</td></tr>';
+  mb.innerHTML = state.meals.length ? state.meals.slice().reverse().map(m=>`
+    <tr><td>${m.date}</td><td>${m.time}</td><td>${m.food}</td><td>${m.kcal} kcal</td><td><button class="del" onclick="delItem('meals','${m.id}')">✕</button></td></tr>`).join('')
+    : '<tr><td colspan="5" class="empty">暂无饮食记录</td></tr>';
+}
+
+function renderDiary(){
+  const list=$('#diary-list');
+  list.innerHTML = state.diaries.length ? state.diaries.slice().reverse().map(d=>`
+    <div class="card" style="padding:14px 16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="date" style="font-size:12px;color:var(--text-sub);">📅 ${d.date}</div>
+        <button class="del" onclick="delItem('diaries','${d.id}')">✕</button>
+      </div>
+      <div class="content" style="font-size:14px;margin-top:5px;">${d.content}</div>
+    </div>`).join('')
+    : '<div class="empty">还没有日记，写下第一条吧～</div>';
+}
+
+let pickedDate = null;
+function buildCalendar(containerId, mini){
+  const y=today.getFullYear(), m=today.getMonth();
+  const first=new Date(y,m,1).getDay();
+  const days=new Date(y,m+1,0).getDate();
+  const wd=['日','一','二','三','四','五','六'];
+  let html=`<div class="cal-head"><span>${y}年${m+1}月</span></div><div class="cal-grid">`+wd.map(w=>`<div class="wd">${w}</div>`).join('');
+  for(let i=0;i<first;i++) html+=`<div class="cal-cell muted"></div>`;
+  for(let d=1; d<=days; d++){
+    const isToday = d===today.getDate();
+    const key = `${y}-${pad(m+1)}-${pad(d)}`;
+    const ev = state.calEvents[key];
+    // 迷你日历（首页）点击后跳转到日历页并选中该日期；完整日历直接选中
+    const clk = mini ? `onclick="openCalendarAt('${key}')"` : `onclick="pickDate('${key}')"`;
+    const sel = (!mini && pickedDate===key)?' selected':'';
+    const clkCls = ' clickable';
+    html += `<div class="cal-cell ${isToday?'today':''}${sel}${clkCls}" ${clk}>${d}${ev?`<span class="dot"></span>`:''}</div>`;
+  }
+  html += `</div>`;
+  document.getElementById(containerId).innerHTML = html;
+}
+function pickDate(key){
+  pickedDate = key;
+  buildCalendar('full-calendar', false);
+  renderCalSelected();
+}
+// 首页迷你日历点击：跳转日历页并选中该日期
+function openCalendarAt(key){
+  pickedDate = key;
+  switchPage('calendar'); // switchPage 内部会 renderCalendar()，自动高亮并渲染选中区
+}
+function renderCalSelected(){
+  const el=$('#cal-selected');
+  if(!pickedDate){ el.innerHTML='<span class="muted">点选上方日期以添加 / 查看事件</span>'; return; }
+  const ev=state.calEvents[pickedDate];
+  el.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <div><b>${pickedDate}</b> ${ev?`· ${ev}`:'<span class="muted">（暂无事件）</span>'}</div>
+      ${ev?`<button class="btn sm ghost" onclick="delCalEvent()">删除标记</button>`:''}
+    </div>`;
+}
+function addCalEvent(){
+  if(!pickedDate){ alert('请先在日历上点选一个日期'); return; }
+  const v=$('#cal-event-input').value.trim();
+  if(!v){ alert('请输入事件内容'); return; }
+  state.calEvents[pickedDate]=v;
+  $('#cal-event-input').value='';
+  save(); buildCalendar('full-calendar',false); renderCalSelected(); renderHome();
+}
+function delCalEvent(){
+  if(pickedDate){ delete state.calEvents[pickedDate]; save(); buildCalendar('full-calendar',false); renderCalSelected(); renderHome(); }
+}
+function renderCalendar(){ buildCalendar('full-calendar', false); renderCalSelected(); }
+
+/* ---- 学习类页面（exam / datalearn / creator） ---- */
+function renderLearnPage(prefix, cfg){
+  const store = state[cfg.key];
+  // 统计卡片
+  const total = store.tasks.length, done = store.tasks.filter(t=>t.done).length;
+  const pct = total? Math.round(done/total*100):0;
+  document.getElementById(cfg.statsId).innerHTML = `
+    <div class="card stat-box"><div class="k">学习进度</div><div class="v">${pct}%</div><div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div></div>
+    <div class="card stat-box"><div class="k">待学任务</div><div class="v">${total-done}</div></div>
+    <div class="card stat-box"><div class="k">${cfg.recLabel}记录</div><div class="v">${store.practice.length}</div></div>`;
+  // 任务清单
+  renderCheckList(cfg.taskPath, cfg.taskEl, null);
+  // 知识点 / 考点卡片（可点击编辑、可删除）
+  const pPath = cfg.key + '.points';
+  document.getElementById(cfg.pointEl).innerHTML = store.points.length ? store.points.map(p=>`
+    <div class="point-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <h4 style="cursor:pointer;" onclick="editPoint('${pPath}','${p.id}')">${p.t}</h4>
+        <button class="del" title="删除" onclick="delPoint('${pPath}','${p.id}')">✕</button>
+      </div>
+      <p style="cursor:pointer;margin-top:4px;" onclick="editPoint('${pPath}','${p.id}')">${p.d}</p>
+    </div>`).join('')
+    : '<div class="empty">暂无内容，点击右上角「+ 添加」</div>';
+  // 练习记录
+  const pb=document.getElementById(cfg.practiceEl);
+  pb.innerHTML = store.practice.length ? store.practice.slice().reverse().map(r=>`
+    <tr><td>${r.date}</td><td>${r.subject}</td><td>${r.count}</td><td>${r.score}</td><td><button class="del" onclick="delItem('${cfg.practicePath}','${r.id}')">✕</button></td></tr>`).join('')
+    : `<tr><td colspan="5" class="empty">暂无${cfg.recLabel}记录</td></tr>`;
+  // 笔记
+  const ta=document.getElementById(cfg.notesId); if(ta) ta.value = store.notes||'';
+}
+function renderExam(){ renderLearnPage('exam', {
+  key:'exam', statsId:'exam-stats', taskPath:'exam.tasks', taskEl:'exam-tasks',
+  pointEl:'exam-points', practiceEl:'exam-practice', practicePath:'exam.practice',
+  recLabel:'刷题', notesId:'exam-notes'
+}); }
+function renderDataLearn(){ renderLearnPage('datalearn', {
+  key:'dataLearn', statsId:'dl-stats', taskPath:'dataLearn.tasks', taskEl:'dl-tasks',
+  pointEl:'dl-points', practiceEl:'dl-practice', practicePath:'dataLearn.practice',
+  recLabel:'练习', notesId:'dl-notes'
+}); }
+function renderCreator(){
+  const c=state.creator;
+  $('#creator-stats').innerHTML = `
+    <div class="card stat-box"><div class="k">粉丝</div><div class="v">${c.stats.followers}</div></div>
+    <div class="card stat-box"><div class="k">总阅读</div><div class="v">${c.stats.views}</div></div>
+    <div class="card stat-box"><div class="k">发布作品</div><div class="v">${c.stats.articles}</div></div>`;
+  // 选题库
+  const tb=$('#creator-topics');
+  tb.innerHTML = c.topics.length ? c.topics.map(t=>`
+    <li class="task-item"><span class="check" style="border:none;color:var(--primary);font-size:14px;">📌</span>
+      <span class="label">${t.title}</span><span class="badge">${t.type}</span>
+      <button class="del" onclick="delItem('creator.topics','${t.id}')">✕</button></li>`).join('')
+    : '<li class="empty">选题库为空，点击下方添加</li>';
+  // 待办
+  renderCheckList('creator.todos','creator-todos', null);
+  // 草稿
+  $('#creator-drafts').value = c.drafts||'';
+}
+
+/* =========================================================
+   6. 新增 / 保存（表单类）
+   ========================================================= */
+function addLedger(){
+  const type=$('#acc-type').value, cat=$('#acc-cat').value;
+  const amount=parseFloat($('#acc-amount').value)||0;
+  const date=$('#acc-date').value||ymd(today);
+  const note=$('#acc-note').value;
+  if(amount<=0){ alert('请输入有效金额'); return; }
+  state.ledgers.push({id:uid(),date,type,cat,amount,note});
+  $('#acc-amount').value=''; $('#acc-note').value='';
+  save(); renderLedger(); renderStats();
+}
+function addExercise(){
+  const type=prompt('运动类型（如：跑步 / 力量训练）','跑步'); if(!type) return;
+  const duration=prompt('运动时长（如：40 分钟）','40 分钟'); if(!duration) return;
+  const kcal=prompt('消耗热量(kcal)','300'); if(!kcal) return;
+  state.exercises.unshift({id:uid(),date:ymd(today),type,duration,kcal:parseInt(kcal)||0});
+  save(); renderFitness(); renderHome();
+}
+function addMeal(){
+  const time=prompt('餐次（早 / 午 / 晚 / 加餐）','午餐'); if(!time) return;
+  const food=prompt('食物内容','鸡胸肉沙拉'); if(!food) return;
+  const kcal=prompt('热量(kcal)','500'); if(!kcal) return;
+  state.meals.unshift({id:uid(),date:ymd(today),time,food,kcal:parseInt(kcal)||0});
+  save(); renderFitness();
+}
+function addDiary(){
+  const v=$('#diary-input').value.trim();
+  if(!v){ alert('请先写点什么～'); return; }
+  state.diaries.push({id:uid(),date:ymd(today),content:v});
+  $('#diary-input').value=''; save(); renderDiary();
+}
+function addExamPractice(){
+  const subject=prompt('科目（如：行测 / 申论）','行测'); if(!subject) return;
+  const count=prompt('题量','30'); if(!count) return;
+  const score=prompt('正确率 / 评价（如：85% / 良）','85%'); if(!score) return;
+  state.exam.practice.unshift({id:uid(),date:ymd(today),subject,count:parseInt(count)||0,score});
+  save(); renderExam();
+}
+/* 考点 / 知识点：新增、编辑、删除 */
+function addPoint(path){
+  const t=prompt('标题（如：行测·资料分析）'); if(!t) return;
+  const d=prompt('内容摘要'); if(!d) return;
+  getArr(path).push({id:uid(), t, d});
+  save(); renderAll();
+}
+function delPoint(path,id){
+  const a=getArr(path); const i=a.findIndex(x=>x.id===id);
+  if(i>-1){ a.splice(i,1); save(); renderAll(); }
+}
+function editPoint(path,id){
+  const a=getArr(path); const it=a.find(x=>x.id===id); if(!it) return;
+  const t=prompt('标题', it.t); if(t===null) return;
+  const d=prompt('内容摘要', it.d); if(d===null) return;
+  it.t = t || it.t; it.d = d || it.d;
+  save(); renderAll();
+}
+function addDataPractice(){
+  const subject=prompt('练习内容（如：Pandas 练习）','Pandas 练习'); if(!subject) return;
+  const count=prompt('题量','5'); if(!count) return;
+  const score=prompt('得分','90'); if(!score) return;
+  state.dataLearn.practice.unshift({id:uid(),date:ymd(today),subject,count:parseInt(count)||0,score});
+  save(); renderDataLearn();
+}
+function addTopic(){
+  const title=prompt('选题标题','新选题'); if(!title) return;
+  const type=prompt('类型（技术 / 生活 / 健康 …）','技术'); if(!type) return;
+  state.creator.topics.unshift({id:uid(),title,type});
+  save(); renderCreator();
+}
+function saveNotes(key){
+  state[key].notes = document.getElementById(key==='exam'?'exam-notes':key==='dataLearn'?'dl-notes':'creator-drafts').value;
+  save(); alert('笔记已保存');
+}
+
+/* =========================================================
+   7. 主题 / 设置
+   ========================================================= */
+function applyTheme(){
+  const a = ACCENTS[state.accent] || ACCENTS.blue;
+  const dark = state.theme==='dark';
+  const root = document.documentElement;
+  root.setAttribute('data-theme', state.theme);
+  root.setAttribute('data-accent', state.accent);
+  root.style.setProperty('--primary', a.primary);
+  root.style.setProperty('--primary-hover', a.hover);
+  root.style.setProperty('--primary-soft', dark ? a.softDark : a.soft);
+  $('meta[name="theme-color"]').setAttribute('content', a.primary);
+  // 同步设置页 UI
+  const tg=$('#theme-toggle'); if(tg) tg.checked = dark;
+  renderSwatches();
+}
+function renderSwatches(){
+  const colors=[['blue','#5b6b7f'],['green','#4c9a82'],['purple','#7a6bb0'],['orange','#d08a4e']];
+  $('#swatches').innerHTML = colors.map(([k,c])=>`
+    <span class="swatch ${state.accent===k?'active':''}" style="background:${c}" title="${k}" onclick="setAccent('${k}')"></span>`).join('');
+}
+function setAccent(k){ state.accent=k; save(); applyTheme(); }
+function toggleTheme(){ state.theme = $('#theme-toggle').checked?'dark':'light'; save(); applyTheme(); }
+function saveProfile(){
+  state.profile = { name:$('#set-name').value, job:$('#set-job').value, weight:$('#set-weight').value, city:$('#set-city').value };
+  save(); alert('个人信息已保存');
+}
+function renderSettings(){
+  $('#set-name').value=state.profile.name||'';
+  $('#set-job').value=state.profile.job||'';
+  $('#set-weight').value=state.profile.weight||'';
+  $('#set-city').value=state.profile.city||'';
+  renderSwatches();
+  $('#theme-toggle').checked = state.theme==='dark';
+}
+
+/* 导出 / 导入 JSON 备份 */
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='workbuddy-backup-'+ymd(today)+'.json';
+  a.click(); URL.revokeObjectURL(url);
+}
+function importJSON(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try {
+      const data=JSON.parse(reader.result);
+      if(typeof data!=='object'||!data.tasks) throw new Error('格式不符');
+      state=data; save(); applyTheme(); renderAll(); renderSettings();
+      alert('数据已恢复');
+    } catch(err){ alert('导入失败：文件格式不正确'); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+/* 一键重置全部数据 */
+function resetAll(){
+  if(confirm('确定要清空全部本地数据并恢复默认模拟数据吗？此操作不可撤销。')){
+    localStorage.removeItem(STORAGE_KEY);
+    state=defaultState(); normalize(state); save(); applyTheme(); renderAll(); renderSettings();
+    alert('已重置为默认数据');
+  }
+}
+
+/* =========================================================
+   8. 导航 + 移动端汉堡菜单
+   ========================================================= */
+function switchPage(page){
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active', b.dataset.page===page));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(page==='stats') renderStats();
+  if(page==='calendar') renderCalendar();
+  if(page==='setting') renderSettings();
+  if(page==='exam') renderExam();
+  if(page==='datalearn') renderDataLearn();
+  if(page==='creator') renderCreator();
+  closeSidebar();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click', ()=> switchPage(btn.dataset.page));
+});
+function openSidebar(){ $('#sidebar').classList.add('open'); $('#overlay').classList.add('show'); }
+function closeSidebar(){ $('#sidebar').classList.remove('open'); $('#overlay').classList.remove('show'); }
+$('#hamburger').addEventListener('click', openSidebar);
+$('#overlay').addEventListener('click', closeSidebar);
+
+/* =========================================================
+   9. 初始化
+   ========================================================= */
+function renderAll(){
+  renderHome(); renderPlan(); renderLedger(); renderStats();
+  renderFitness(); renderDiary(); renderCalendar();
+  renderExam(); renderDataLearn(); renderCreator();
+}
+state = loadState();
+applyTheme();
+$('#acc-date').value = ymd(today);
+renderAll();
+
+/* 注册 Service Worker（PWA 离线 / 桌面安装） */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./service-worker.js').catch(err=>console.warn('SW 注册失败', err));
+  });
+}
+</script>
+</body>
+</html>
